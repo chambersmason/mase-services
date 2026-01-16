@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="MASE AI Consulting. We transition enterprises from human-dependent workflows to autonomous silicon infrastructure. Book your AI strategy audit today.">
+    <title>MASE | Enterprise AI Consulting & Automation</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;700&family=Space+Grotesk:wght@300;500;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --neon-blue: #00f3ff;
+            --neon-purple: #bc13fe;
+            --alert-red: #ff2a2a;
+            --bg-color: #030305;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: white;
+            font-family: 'Inter', sans-serif;
+            overflow-x: hidden;
+            margin: 0;
+        }
+
+        h1, h2, h3, .font-mono {
+            font-family: 'Space Grotesk', sans-serif;
+        }
+
+        /* Fixed Canvas for the 3D Experience */
+        #webgl-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 0;
+            pointer-events: none; /* Let clicks pass through */
+        }
+
+        /* Overlay UI - HUD Elements */
+        .hud-layer {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+            pointer-events: none;
+            padding: 2rem;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .hud-border {
+            position: absolute;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            width: 20px;
+            height: 20px;
+        }
+        .tl { top: 2rem; left: 2rem; border-right: 0; border-bottom: 0; }
+        .tr { top: 2rem; right: 2rem; border-left: 0; border-bottom: 0; }
+        .bl { bottom: 2rem; left: 2rem; border-right: 0; border-top: 0; }
+        .br { bottom: 2rem; right: 2rem; border-left: 0; border-top: 0; }
+
+        /* Scroll Content Styling */
+        .scroll-section {
+            position: relative;
+            z-index: 20;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: flex-start; /* Default aligned left */
+            padding: 2rem;
+            pointer-events: none; /* Allow scroll but not blocking clicks */
+        }
+
+        /* Left aligned containers */
+        .content-container-left {
+            margin-left: 5%;
+            width: 100%;
+            max-width: 500px;
+        }
+
+        .content-card {
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 3rem;
+            width: 100%;
+            border-radius: 4px;
+            pointer-events: auto; /* Re-enable clicks on text */
+            transform: translateY(20px);
+            opacity: 0; /* Hidden initially, controlled by GSAP */
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+
+        .marker-text {
+            color: var(--neon-blue);
+            font-size: 0.75rem;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            margin-bottom: 1rem;
+            display: block;
+        }
+
+        .glow-text {
+            text-shadow: 0 0 20px rgba(0, 243, 255, 0.3);
+        }
+
+        /* Progress Bar */
+        .progress-container {
+            position: fixed;
+            right: 2rem;
+            top: 50%;
+            transform: translateY(-50%);
+            height: 200px;
+            width: 2px;
+            background: rgba(255,255,255,0.1);
+            z-index: 50;
+        }
+        .progress-bar {
+            width: 100%;
+            background: var(--neon-blue);
+            height: 0%;
+            box-shadow: 0 0 10px var(--neon-blue);
+        }
+
+        /* Status Pill */
+        .status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 99px;
+            font-family: monospace;
+            font-size: 0.8rem;
+            background: rgba(0,0,0,0.5);
+        }
+        .status-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background-color: #555;
+        }
+        .status-dot.active { background-color: var(--neon-blue); box-shadow: 0 0 8px var(--neon-blue); }
+        .status-dot.alert { background-color: var(--alert-red); box-shadow: 0 0 8px var(--alert-red); }
+        
+        /* Form Inputs */
+        input, textarea, select {
+            width: 100%;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            padding: 1rem;
+            color: white;
+            margin-bottom: 1rem;
+            border-radius: 4px;
+            transition: all 0.3s;
+        }
+        input:focus, textarea:focus, select:focus {
+            outline: none;
+            border-color: var(--neon-blue);
+            background: rgba(255,255,255,0.1);
+        }
+        
+        .cta-button {
+            background-color: white;
+            color: black;
+            font-weight: bold;
+            padding: 1rem 2rem;
+            border-radius: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            font-size: 0.875rem;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            pointer-events: auto;
+            border: 1px solid white;
+        }
+        .cta-button:hover {
+            background-color: var(--neon-blue);
+            border-color: var(--neon-blue);
+            box-shadow: 0 0 15px var(--neon-blue);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 3D Canvas -->
+    <canvas id="webgl-container"></canvas>
+
+    <!-- Fixed HUD -->
+    <div class="hud-layer">
+        <div class="hud-border tl"></div>
+        <div class="hud-border tr"></div>
+        <div class="hud-border bl"></div>
+        <div class="hud-border br"></div>
+
+        <!-- Top Nav -->
+        <nav class="flex justify-between items-center w-full pointer-events-auto">
+            <div class="text-2xl font-bold tracking-tighter font-mono">
+                MASE<span class="text-cyan-400">_</span>
+            </div>
+            <a href="#section-contact" class="cta-button py-2 px-6 text-xs bg-transparent text-white border-white/20 hover:bg-white hover:text-black">
+                Contact Us
+            </a>
+        </nav>
+
+        <!-- Bottom Status -->
+        <div class="flex justify-between items-end w-full">
+            <div class="status-pill">
+                <span id="status-dot" class="status-dot"></span>
+                <span id="status-text">SYSTEM_IDLE</span>
+            </div>
+            <div class="text-right font-mono text-xs text-gray-500">
+                COORD: <span id="coord-display">00.00.00</span><br>
+                ENTROPY: <span id="entropy-display">100%</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scroll Progress -->
+    <div class="progress-container">
+        <div class="progress-bar" id="progress-bar"></div>
+    </div>
+
+    <!-- SCROLL CONTENT -->
+    
+    <!-- Section 1: Hero (Centered) -->
+    <section class="scroll-section" style="justify-content: center;" id="section-hero">
+        <div class="content-card text-center" style="background: transparent; border: none; backdrop-filter: none; max-width: 800px;">
+            <span class="marker-text">Architectural Intelligence</span>
+            <h1 class="text-6xl md:text-8xl font-bold mb-6 glow-text tracking-tight">
+                SCALE <br>WITHOUT <br>CARBON.
+            </h1>
+            <p class="text-gray-400 text-xl max-w-2xl mx-auto leading-relaxed">
+                The premier AI Consulting firm for the modern enterprise. We transition you from human-dependent workflows to autonomous silicon infrastructure.
+            </p>
+            <div class="mt-8 text-xs text-gray-500 font-mono animate-pulse">
+                SCROLL TO INITIALIZE SCAN ↓
+            </div>
+        </div>
+    </section>
+
+    <!-- Section 2: Chaos / Friction (Left) -->
+    <section class="scroll-section" id="section-chaos">
+        <div class="content-container-left">
+            <div class="content-card">
+                <span class="marker-text text-red-500">Phase 01: Structural Decomposition</span>
+                <h2 class="text-4xl font-bold mb-4">The Expansion of Complexity.</h2>
+                <p class="text-gray-300 mb-6 leading-relaxed">
+                    Traditional organizational structures are rigid. As they scale, they fracture. We expose the hidden inefficiencies by exploding your data ecosystem, revealing the <span class="text-red-400">"Red Zones"</span> of friction.
+                </p>
+                <div class="flex items-center gap-4 text-xs font-mono text-red-400 border-t border-white/10 pt-4">
+                    <span>⚠ LATENCY DETECTED</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Section 3: The Scan (Left) -->
+    <section class="scroll-section" id="section-scan">
+        <div class="content-container-left">
+            <div class="content-card">
+                <span class="marker-text text-cyan-400">Phase 02: Deep Audit</span>
+                <h2 class="text-4xl font-bold mb-4">The MASE Event.</h2>
+                <p class="text-gray-300 mb-6 leading-relaxed">
+                    Our audit isn't a checklist. It's a purification event. Our algorithms sweep outward from the core, identifying and instantly neutralizing manual dependencies and bottlenecks.
+                </p>
+                <div class="flex items-center gap-4 text-xs font-mono text-cyan-400 border-t border-white/10 pt-4">
+                    <span class="animate-pulse">◎ PURGING INEFFICIENCIES...</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Section 4: Order / Crystal (Left) -->
+    <section class="scroll-section" id="section-order">
+        <div class="content-container-left">
+            <div class="content-card">
+                <span class="marker-text text-purple-400">Phase 03: Silicon Lattice</span>
+                <h2 class="text-4xl font-bold mb-4">Crystalline Efficiency.</h2>
+                <p class="text-gray-300 mb-8 leading-relaxed">
+                    With friction removed, your infrastructure reassembles into a perfect, automated lattice. Humans become supervisors. Your company becomes a machine.
+                </p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Section 5: Contact / Conversion (Left) -->
+    <section class="scroll-section" id="section-contact">
+        <div class="content-container-left">
+            <div class="content-card">
+                <span class="marker-text text-white">Strategy & Implementation</span>
+                <h2 class="text-3xl font-bold mb-4">Unsure where to start?</h2>
+                <p class="text-gray-400 mb-6 text-sm leading-relaxed">
+                    You don't need to have all the answers. Our <strong>Strategic Roadmap Session</strong> is designed for leaders who know they need AI but need a clear path forward. We guide you from "Zero" to "deployed" in weeks, not months.
+                </p>
+                
+                <form class="space-y-4">
+                    <div class="grid grid-cols-2 gap-4">
+                        <input type="text" placeholder="Name" />
+                        <input type="text" placeholder="Company" />
+                    </div>
+                    <input type="email" placeholder="Work Email" />
+                    <select class="text-gray-400">
+                        <option>What is your primary goal?</option>
+                        <option>Reduce Operational Costs</option>
+                        <option>Scale Without Hiring</option>
+                        <option>Automate Customer Support</option>
+                        <option>I need a Full Strategy Audit</option>
+                    </select>
+                    
+                    <button type="button" class="w-full cta-button mt-4">
+                        Book Your Strategy Call
+                    </button>
+                </form>
+
+                <div class="mt-8 pt-6 border-t border-white/10 flex justify-between text-xs text-gray-500 font-mono">
+                    <div>MASON CHAMBERS LLC</div>
+                    <div>SECURE CONNECTION_</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <div style="height: 10vh;"></div>
+
+    <script>
+        // --- CONFIGURATION ---
+        const config = {
+            particleCount: 800,
+            cubeSize: 0.15,
+            spread: 8,
+            colors: {
+                chaos: new THREE.Color('#4a4a4a'), // Dark Grey
+                alert: new THREE.Color('#ff2a2a'), // Red
+                safe: new THREE.Color('#00f3ff'),  // Cyan
+                scan: new THREE.Color('#ffffff')   // White
+            }
+        };
+
+        // --- THREE.JS SETUP ---
+        const canvas = document.querySelector('#webgl-container');
+        const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+        const scene = new THREE.Scene();
+        scene.fog = new THREE.FogExp2(0x030305, 0.08);
+
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 100);
+        camera.position.set(0, 0, 12); // Start further back to see the building
+
+        // --- LIGHTING ---
+        const ambientLight = new THREE.AmbientLight(0x404040, 2);
+        scene.add(ambientLight);
+
+        // --- OBJECTS: THE CLOUD ---
+        const geometry = new THREE.BoxGeometry(config.cubeSize, config.cubeSize, config.cubeSize);
+        
+        const material = new THREE.MeshStandardMaterial({ 
+            color: 0xffffff,
+            roughness: 0.7,
+            metalness: 0.1
+        });
+        
+        const cubes = new THREE.InstancedMesh(geometry, material, config.particleCount);
+        scene.add(cubes);
+
+        // Data arrays
+        const dummy = new THREE.Object3D(); 
+        const buildingPositions = [];
+        const randomPositions = []; 
+        const gridPositions = [];   
+        const colors = new Float32Array(config.particleCount * 3); 
+        const isRed = []; 
+
+        // --- POSITION GENERATION ---
+        
+        // 1. Building Positions (Skyline / Org Chart Structure)
+        // We define distinct "blocks" to form a massive corporate structure
+        const skyline = [
+            { x: 0, z: -2, w: 5, d: 4, h: 9 },    // Central Tower (CEO/Exec)
+            { x: -5, z: 0, w: 3, d: 3, h: 5 },    // Left Wing (Ops)
+            { x: 5, z: 0, w: 3, d: 3, h: 5 },     // Right Wing (Sales)
+            { x: 0, z: 3, w: 10, d: 2, h: 3 },    // Base Foundation (Workforce)
+        ];
+
+        let bIdx = 0; // Current particle index being placed
+        
+        // Distribute particles across the buildings
+        skyline.forEach(block => {
+            const particlesForBlock = Math.floor(config.particleCount / skyline.length);
+            const volume = block.w * block.d * block.h;
+            const density = particlesForBlock / volume; 
+            
+            // Calculate steps to fill the volume roughly evenly
+            const countX = Math.ceil(Math.pow(particlesForBlock * (block.w / block.d) * (block.w/block.h), 1/3));
+            
+            // Simple grid filling
+            const stepX = block.w / 6; 
+            const stepZ = block.d / 6;
+            const stepY = 0.6; // Vertical spacing
+
+            let pCount = 0;
+            // Fill layer by layer
+            for(let y = -block.h/2; y < block.h/2; y += stepY) {
+                for(let x = -block.w/2; x < block.w/2; x += stepX) {
+                    for(let z = -block.d/2; z < block.d/2; z += stepZ) {
+                        // Push position if we haven't exceeded global or block limit (soft limit)
+                        // We actually just want to push until we run out of particles later, 
+                        // but let's pre-calculate to ensure we fill the array correctly.
+                        buildingPositions.push(
+                            block.x + x + (Math.random()-0.5)*0.2, // Add slight jitter
+                            y + block.h/4, // Lift slightly
+                            block.z + z + (Math.random()-0.5)*0.2
+                        );
+                    }
+                }
+            }
+        });
+
+        // If we generated too many or too few, trim/fill
+        // This failsafe ensures the array length matches exactly particleCount * 3
+        while(buildingPositions.length < config.particleCount * 3) {
+            // Add to center tower if underfilled
+            buildingPositions.push(
+                (Math.random()-0.5)*4,
+                (Math.random()-0.5)*8,
+                (Math.random()-0.5)*4
+            );
+        }
+        // If overfilled, just slice (though our loop usually underfills slightly due to steps)
+        if(buildingPositions.length > config.particleCount * 3) {
+            buildingPositions.length = config.particleCount * 3;
+        }
+
+
+        // 2. Chaos & 3. Grid Positions & Colors
+        for (let i = 0; i < config.particleCount; i++) {
+            // Chaos
+            const rX = (Math.random() - 0.5) * config.spread * 1.5;
+            const rY = (Math.random() - 0.5) * config.spread * 1.5;
+            const rZ = (Math.random() - 0.5) * config.spread * 1.5;
+            randomPositions.push(rX, rY, rZ);
+
+            // Sphere Grid
+            const phi = Math.acos(-1 + (2 * i) / config.particleCount);
+            const theta = Math.sqrt(config.particleCount * Math.PI) * phi;
+            const radius = 3.5;
+            const gX = radius * Math.cos(theta) * Math.sin(phi);
+            const gY = radius * Math.sin(theta) * Math.sin(phi);
+            const gZ = radius * Math.cos(phi);
+            gridPositions.push(gX, gY, gZ);
+
+            // Colors
+            const isBottleneck = Math.random() < 0.25; // 25% bottleneck
+            isRed.push(isBottleneck);
+
+            // Start as Chaos Grey (will be building color)
+            const color = isBottleneck ? config.colors.alert : config.colors.chaos;
+            colors[i * 3] = config.colors.chaos.r; // Start all grey in building
+            colors[i * 3 + 1] = config.colors.chaos.g;
+            colors[i * 3 + 2] = config.colors.chaos.b;
+
+            // Initialize at Building
+            dummy.position.set(buildingPositions[i*3], buildingPositions[i*3+1], buildingPositions[i*3+2]);
+            dummy.rotation.set(0, 0, 0);
+            dummy.updateMatrix();
+            cubes.setMatrixAt(i, dummy.matrix);
+        }
+        cubes.instanceColor = new THREE.InstancedBufferAttribute(colors, 3);
+
+
+        // --- SCANNER OBJECT: THE BIG BANG SPHERE ---
+        const scanGeo = new THREE.SphereGeometry(1, 32, 32);
+        const scanMat = new THREE.MeshBasicMaterial({ 
+            color: 0x00f3ff, 
+            wireframe: true,
+            transparent: true,
+            opacity: 0
+        });
+        const scanSphere = new THREE.Mesh(scanGeo, scanMat);
+        scene.add(scanSphere);
+        
+        // Inner glow for scan
+        const glowGeo = new THREE.SphereGeometry(0.8, 32, 32);
+        const glowMat = new THREE.MeshBasicMaterial({
+            color: 0xffffff,
+            transparent: true,
+            opacity: 0,
+            blending: THREE.AdditiveBlending
+        });
+        const scanGlow = new THREE.Mesh(glowGeo, glowMat);
+        scene.add(scanGlow);
+
+
+        // --- ANIMATION STATE ---
+        const state = {
+            buildingChaosMix: 0, // 0 = Building, 1 = Chaos
+            chaosOrderMix: 0,    // 0 = Chaos, 1 = Order
+            scanRadius: 0,       // 0 to 20
+            rotationSpeed: 0.0005
+        };
+
+        // --- GSAP SCROLL LOGIC ---
+        gsap.registerPlugin(ScrollTrigger);
+
+        const tl = gsap.timeline({
+            scrollTrigger: {
+                trigger: "body",
+                start: "top top",
+                end: "bottom bottom",
+                scrub: 1.5
+            }
+        });
+
+        // 1. Hero -> Chaos (Explosion)
+        tl.to(state, { buildingChaosMix: 1, duration: 2 });
+        tl.to(camera.position, { z: 9, duration: 2 }, "<");
+        
+        // 2. Chaos -> Scan (Big Bang)
+        tl.to([scanSphere.material, scanGlow.material], { opacity: 0.5, duration: 0.2 });
+        tl.to(state, { scanRadius: 15, duration: 4 }, "<"); // Expand sphere radius
+        tl.to(scanSphere.scale, { x: 15, y: 15, z: 15, duration: 4 }, "<");
+        tl.to(scanGlow.scale, { x: 14, y: 14, z: 14, duration: 4 }, "<");
+        
+        // FADE OUT FIX: Start fading out earlier so it disappears before engulfing the camera
+        // Timeline is 4s long. We start fading at T=1s and finish at T=2s.
+        // This ensures the wave hits the blocks (Radius ~7) but fades before hitting camera (Z=9)
+        tl.to([scanSphere.material, scanGlow.material], { opacity: 0, duration: 1 }, "-=3");
+
+        // 3. Scan -> Order (Crystal Formation)
+        tl.to(state, { chaosOrderMix: 1, duration: 3 });
+        tl.to(camera.position, { z: 10, duration: 3 }, "<");
+
+        // 4. Contact Phase (Slide Right)
+        tl.to(camera.position, { z: 9, duration: 2 });
+        tl.to(state, { rotationSpeed: 0.0002, duration: 2 }, "<");
+        tl.to(cubes.position, { x: 2.5, duration: 2 }, "<");
+
+
+        // --- UI TEXT REVEALS ---
+        const sections = document.querySelectorAll('.content-card');
+        sections.forEach((card) => {
+            gsap.fromTo(card, 
+                { opacity: 0, y: 30 },
+                { 
+                    opacity: 1, 
+                    y: 0, 
+                    duration: 1,
+                    scrollTrigger: {
+                        trigger: card,
+                        start: "top 80%",
+                        end: "top 50%",
+                        toggleActions: "play none none reverse"
+                    }
+                }
+            );
+        });
+
+        // Update Progress Bar
+        gsap.to("#progress-bar", {
+            height: "100%",
+            ease: "none",
+            scrollTrigger: {
+                trigger: "body",
+                scrub: 0
+            }
+        });
+
+        // Update HUD Text
+        ScrollTrigger.create({
+            trigger: "#section-chaos",
+            start: "top center",
+            onEnter: () => {
+                document.getElementById('status-dot').className = "status-dot alert";
+                document.getElementById('status-text').innerText = "STRUCTURAL_FAILURE";
+                document.getElementById('status-text').style.color = "#ff2a2a";
+            },
+            onLeaveBack: () => {
+                document.getElementById('status-dot').className = "status-dot";
+                document.getElementById('status-text').innerText = "STRUCTURE_STABLE";
+                document.getElementById('status-text').style.color = "white";
+            }
+        });
+
+        ScrollTrigger.create({
+            trigger: "#section-order",
+            start: "top center",
+            onEnter: () => {
+                document.getElementById('status-dot').className = "status-dot active";
+                document.getElementById('status-text').innerText = "OPTIMIZED_STATE";
+                document.getElementById('status-text').style.color = "#00f3ff";
+            },
+            onLeaveBack: () => {
+                document.getElementById('status-dot').className = "status-dot alert";
+                document.getElementById('status-text').innerText = "PURGING...";
+            }
+        });
+        
+        ScrollTrigger.create({
+            trigger: "#section-contact",
+            start: "top center",
+            onEnter: () => {
+                document.getElementById('status-text').innerText = "READY_TO_DEPLOY";
+            }
+        });
+
+
+        // --- ANIMATION LOOP ---
+        const tempColor = new THREE.Color();
+        const tempPos = new THREE.Vector3();
+        const currentPos = new THREE.Vector3();
+        const targetPos = new THREE.Vector3();
+        const spherePos = new THREE.Vector3();
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            cubes.rotation.y += state.rotationSpeed;
+            // cubes.rotation.x += state.rotationSpeed * 0.5; // Less vertical spin for stability
+
+            // Rotate scanner
+            scanSphere.rotation.y -= 0.01;
+            scanSphere.rotation.z += 0.01;
+
+            const time = Date.now() * 0.0005;
+
+            for (let i = 0; i < config.particleCount; i++) {
+                
+                // 1. Calculate Positions based on Mixes
+                const ix3 = i*3;
+                
+                // P1: Building
+                const bx = buildingPositions[ix3];
+                const by = buildingPositions[ix3+1];
+                const bz = buildingPositions[ix3+2];
+
+                // P2: Chaos
+                const cx = randomPositions[ix3];
+                const cy = randomPositions[ix3+1];
+                const cz = randomPositions[ix3+2];
+
+                // P3: Order (Sphere)
+                const ox = gridPositions[ix3];
+                const oy = gridPositions[ix3+1];
+                const oz = gridPositions[ix3+2];
+
+                // Lerp Building -> Chaos
+                currentPos.set(bx, by, bz);
+                targetPos.set(cx, cy, cz);
+                tempPos.lerpVectors(currentPos, targetPos, state.buildingChaosMix);
+
+                // Lerp Chaos -> Order (Final Sphere)
+                spherePos.set(ox, oy, oz);
+                tempPos.lerp(spherePos, state.chaosOrderMix);
+
+                dummy.position.copy(tempPos);
+
+                // 2. Rotation
+                const rotFactor = (1 - state.chaosOrderMix);
+                dummy.rotation.set(
+                    Math.sin(i * 0.5 + time) * rotFactor, 
+                    Math.cos(i * 0.3 + time) * rotFactor, 
+                    0
+                );
+
+                // 3. Scan Logic (Big Bang)
+                // Calculate distance from center (0,0,0)
+                const dist = tempPos.length();
+                let scale = 1;
+
+                // Color Logic
+                // If Building Phase (< 0.5 chaos), mostly grey
+                if (state.buildingChaosMix < 0.2) {
+                     tempColor.copy(config.colors.chaos);
+                } else {
+                    // We are expanding/expanded
+                    if (isRed[i]) {
+                        tempColor.copy(config.colors.alert);
+                    } else {
+                        tempColor.copy(config.colors.chaos);
+                    }
+                }
+
+                // If Hit by Scan
+                // Scan Radius grows from 0 to 15.
+                // If scanRadius has passed this particle, it is "Scanned"
+                if (state.scanRadius > 0.1) {
+                    const hasPassed = dist < state.scanRadius;
+                    
+                    if (hasPassed) {
+                         if (isRed[i]) {
+                            // ELIMINATE RED BLOCKS
+                            scale = 0;
+                        } else {
+                            // Turn Blue/White
+                            // Transition color to safe
+                            tempColor.lerp(config.colors.safe, 0.1); // Slow transition or instant?
+                            
+                            // Flash white briefly near the wavefront?
+                            if (dist > state.scanRadius - 1.5) {
+                                tempColor.setHex(0xffffff);
+                                // No jitter requested
+                            } else {
+                                tempColor.copy(config.colors.safe);
+                            }
+                        }
+                    }
+                }
+
+                // Order phase color override
+                if (state.chaosOrderMix > 0.1) {
+                    // Ensure everything remaining turns nice blue/cyan
+                    if (!isRed[i]) {
+                        tempColor.lerp(config.colors.safe, state.chaosOrderMix);
+                    }
+                }
+
+                // Breathing effect
+                if (scale > 0) {
+                     scale = 1 + Math.sin(time * 3 + i) * 0.1;
+                }
+
+                dummy.scale.set(scale, scale, scale);
+                dummy.updateMatrix();
+                cubes.setMatrixAt(i, dummy.matrix);
+                cubes.setColorAt(i, tempColor);
+            }
+
+            cubes.instanceMatrix.needsUpdate = true;
+            cubes.instanceColor.needsUpdate = true;
+
+            // HUD Updates
+            document.getElementById('coord-display').innerText = 
+                `${Math.abs(camera.position.z).toFixed(2)}.${Math.abs(cubes.rotation.y).toFixed(2)}`;
+            document.getElementById('entropy-display').innerText = 
+                `${Math.round((1 - state.chaosOrderMix) * 100)}%`;
+
+            renderer.render(scene, camera);
+        }
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        animate();
+
+    </script>
+</body>
+</html>
